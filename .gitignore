@@ -1,0 +1,18 @@
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# End of https://www.gitignore.io/api/macos,python,windows,pycharm
+.idea/misc.xml
+
+# Notebook Export
+webpages/*/*.html
+
+# Dataset local cache
+resources/torchtext
+
+
+
+

@@ -1,26 +1,38 @@
 import copy
-import torch
+
 import numpy as np
+import torch
 import torch.nn as nn
 
+# if CUDA available, moves computations to GPU
+if torch.cuda.is_available():
+    device = torch.device('cuda')
+else:
+    device = torch.device('cpu')
 
-def clones(module, N):
+
+def clone(module, N) -> nn.ModuleList:
     """
-    Produce ``N`` identical copies of ``module`` and return them as a ``nn.ModuleList``.
+    Produces ``N`` identical copies of ``module`` and returns them as a ``nn.ModuleList``.
     """
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 
 def subsequent_mask(size):
     """
-    Mask out subsequent positions.
+    Masks out subsequent positions.
+
+    The mask shows the position each tgt word (row) is allowed to look at (column).
+    Words are blocked for attending to future words during training.
+
     :param size: Input size
     :return: Tensor with boolean mask on subsequent position
     """
     attn_shape = (1, size, size)
-    subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
-    return torch.from_numpy(subsequent_mask) == 0
+    # pylint: disable=no-member
+    subsequent_mask = np.triu(np.ones(attn_shape), k=1)  # Upper triangle of an array.
 
+    return torch.from_numpy(subsequent_mask).to(device) == 0
 
 
 class BColors:

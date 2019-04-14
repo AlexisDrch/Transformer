@@ -48,8 +48,6 @@ class ScaledDotProductAttention(nn.Module):
         """
         Implements the forward pass of the ``ScaledDotProductAttention`` class.
 
-        TODO: Should verify the shape of the tensors.
-
         :param queries: Tensor of shape (batch_size, sequence_length, d_k). Represents the queries Q.
 
         :param keys: Tensor of shape (batch_size, sequence_length, d_k). Represents the keys K.
@@ -57,33 +55,34 @@ class ScaledDotProductAttention(nn.Module):
         :param values: Tensor of shape (batch_size, sequence_length, d_v). Represents the values V.
 
         :param mask: If not ``None``, will mask out the values at indexes where ``mask==0`` before the softmax layer.
-        Can be used in the Decoder to avoid a position at index ``i`` in the sequence to attend to positions
-        at indices > ``i`` -> prevent a leftward information flow which would be illegal in the Decoder.
 
-        :return:
+        .. note::
 
-            - Output: Results of attention weights applied to the values. Shape should be (batch_size, seq_length, d_model)
-            - attn_weights: Attention weights. Shape should be (batch_size, seq_length, seq_length)
+            Can be used in the Decoder to avoid a position at index ``i`` in the sequence to attend to
+            positions at indices > ``i``.
+            -> prevent a leftward information flow which would be illegal in the ``Decoder``.
+
+        :return: Results of attention weights applied to the values. Shape should be (batch_size, seq_length, d_v)
 
         """
         # get dimension d_k
-        d_k = queries.size(-1)
+        d_k = queries.shape[-1]
 
-        # compute Q * K^^T
+        # compute Q * K^T
         scores = torch.matmul(queries, keys.transpose(-2, -1)) / np.sqrt(d_k)
 
         if mask is not None:
-            scores = scores.masked_fill(mask, -np.inf)
+            # mask out values at indices where mask is 0 by setting them to a large negative value
+            # Will be normalized to 0 in the softmax layer afterwards
+            scores = scores.masked_fill(mask == 0, -1e9)
 
         # get attn weights
-        attn_weights = self.softmax(scores)
+        attention_weights = self.softmax(scores)
 
-        attn_weights = self.dropout(attn_weights)
+        attention_weights = self.dropout(attention_weights)
 
         # apply the weights on the values
-        output = torch.matmul(attn_weights, values)
-
-        return output
+        return torch.matmul(attention_weights, values)
 
 
 class MultiHeadAttention(nn.Module):
@@ -119,7 +118,7 @@ class MultiHeadAttention(nn.Module):
 
         :param d_v: Dimensionality of each value (Should correspond to d_model / n_head).
 
-        :param dropout: dropout probability. Default: 0.1.
+        :param dropout: dropout probability. Default: 0.1. Passed to :py:class:`ScaledDotProductAttention`.
 
         """
         # call base constructor
@@ -138,37 +137,40 @@ class MultiHeadAttention(nn.Module):
         self.w_ks = nn.Linear(d_model, n_head * d_k)
         self.w_vs = nn.Linear(d_model, n_head * d_v)
 
-        # not sure if this specific initialization scheme is specified in the paper.
-        # nn.init.normal_(self.w_qs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        # nn.init.normal_(self.w_ks.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_k)))
-        # nn.init.normal_(self.w_vs.weight, mean=0, std=np.sqrt(2.0 / (d_model + d_v)))
-
         # instantiate the attention layer
         self.attention = ScaledDotProductAttention(attn_dropout=dropout)
 
         # final output linear layer
         self.fc = nn.Linear(n_head * d_v, d_model)
-        # nn.init.xavier_normal_(self.fc.weight)
 
     def forward(self, queries: Tensor, keys: Tensor, values: Tensor, mask=None) -> Tensor:
         """
         Implements the forward pass of the ``MultiHeadAttention`` class.
 
-        TODO: Should verify the shape of the tensors.
+        :param queries: Tensor of shape (batch_size, sequence_length, d_model). Represents the queries Q.
 
-        :param queries: Tensor of shape (batch_size, sequence_length, d_k). Represents the queries Q.
+        :param keys: Tensor of shape (batch_size, sequence_length, d_model). Represents the keys K.
 
-        :param keys: Tensor of shape (batch_size, sequence_length, d_k). Represents the keys K.
+        :param values: Tensor of shape (batch_size, sequence_length, d_model). Represents the values V.
 
-        :param values: Tensor of shape (batch_size, sequence_length, d_v). Represents the values V.
+
+        .. note ::
+
+            Q, K, V will be passed into linear layers that reduce their dimensionality from d_model to d_k, d_v resp.
+
+            Yet, for efficiency purposes, we pack Q (resp. K,V) of each attention head as one matrix, of dim d_k * n_head.
+
+            Since, in :py:func:`__init__`, we ensure that d_model % n_head = 0, and that we use d_k = d_v = d_model / n_head,
+
+            the input tensors will have dimension d_model.
 
         :param mask: If not ``None``, will mask out the values at indexes where ``mask==0`` before the softmax layer.
         Can be used in the Decoder to avoid a position at index ``i`` in the sequence to attend to positions
         at indices > ``i`` -> prevent a leftward information flow which would be illegal in the Decoder.
 
-        :return:
-
-            - Output: Results of attention weights applied to the values. Shape should be (batch_size, seq_length, d_model)
+        :return: Results of attention weights applied to the values
+                (linear projection of the concatenation of the output of each head).
+                Shape should be (batch_size, seq_length, d_model).
 
         """
 
@@ -176,21 +178,20 @@ class MultiHeadAttention(nn.Module):
             # Same mask applied to all heads.
             mask = mask.unsqueeze(1)
 
-        nbatches = queries.shape[0]
+        n_batches = queries.shape[0]
 
         # 1) Do all the linear projections in batch from d_model => h x d_k
-        queries, keys, values = [l(x).view(nbatches, -1, self.n_head, self.d_k).transpose(1, 2)
+        queries, keys, values = [l(x).view(n_batches, -1, self.n_head, self.d_k).transpose(1, 2)
                                  for l, x in zip((self.w_qs, self.w_ks, self.w_vs), (queries, keys, values))]
 
         # 2) Apply attention on all the projected vectors in batch.
         x = self.attention(queries, keys, values, mask=mask)
 
         # 3) Concat using a view.
-        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.n_head * self.d_k)
+        x = x.transpose(1, 2).contiguous().view(n_batches, -1, self.n_head * self.d_k)
 
-        output = self.fc(x)
-
-        return output
+        # final linear layer
+        return self.fc(x)
 
 
 if __name__ == '__main__':
