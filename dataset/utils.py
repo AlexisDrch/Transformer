@@ -1,4 +1,4 @@
-from enum import IntEnum, auto
+from enum import auto, Flag
 
 import nltk
 
@@ -29,6 +29,7 @@ class Tokenizer(object):
         return nltk.word_tokenize(text, language=self.language)
 
 
-class Split(IntEnum):
+class Split(Flag):
     Train = auto()
     Validation = auto()
+    Test = auto()

@@ -1,3 +1,7 @@
+import logging
+from os.path import join
+from typing import Optional, Union
+
 import torch
 import torch.nn as nn
 from datetime import datetime
@@ -55,6 +59,9 @@ class Transformer(nn.Module):
         """
         # call base constructor
         super(Transformer, self).__init__()
+
+        # Save params for Checkpoint
+        self._params = params
 
         # instantiate Encoder layer
         enc_layer = EncoderLayer(size=params['d_model'],
@@ -227,7 +234,7 @@ class Transformer(nn.Module):
         # 10. return prediction
         return translation
 
-    def save(self, model_dir: str, epoch_idx: int, loss_value: float) -> None:
+    def save(self, model_dir: str, epoch_idx: int, loss_value: float, model_name: str = None) -> str:
         """
         Method to save a model along with a couple of information: number of training epochs and reached loss.
 
@@ -238,39 +245,78 @@ class Transformer(nn.Module):
         :param epoch_idx: Epoch number.
 
         :param loss_value: Reached loss value at end of epoch ``epoch_idx``.
+
+        :returns: The path to the file
         """
 
         # Checkpoint to be saved.
-        chkpt = {'name': 'Transformer',
-                 'state_dict': self.state_dict(),
-                 'model_timestamp': datetime.now(),
-                 'epoch': epoch_idx,
-                 'loss': loss_value
-                 }
+        chkpt = {
+            'name': 'Transformer',
+            'params': self._params,
+            'state_dict': self.state_dict(),
+            'model_timestamp': datetime.now(),
+            'epoch': epoch_idx,
+            'loss': loss_value,
+        }
 
-        filename = model_dir + 'model_epoch_{}.pt'.format(epoch_idx)
+        if model_name is None:
+            model_name = f"model_epoch_{epoch_idx}.pt"
+
+        filename = join(model_dir, model_name)
         torch.save(chkpt, filename)
+        return filename
 
-    def load(self, checkpoint_file, logger) -> None:
+    def load(self, checkpoint: Union[str, dict], logger: Optional[logging.Logger] = None) -> None:
         """
         Loads a model from the specified checkpoint file.
 
-        :param checkpoint_file: File containing dictionary with model state and statistics.
+        :param checkpoint: Dictionary with model state and statistics,
+                           or a path to a checkpoint file.
 
         :param: logger: Logger object (to indicate number of trained epochs and loss value from loaded model).
 
         """
         # Load checkpoint
         # This is to be able to load a CUDA-trained model on CPU
-        chkpt = torch.load(checkpoint_file, map_location=lambda storage, loc: storage)
+        if isinstance(checkpoint, str):
+            checkpoint = torch.load(checkpoint, map_location=lambda storage, loc: storage)
+        assert isinstance(checkpoint, dict), ("The checkpoint must be a dictionary or at least "
+                                              "a path to a checkpoint file.")
 
         # Load model.
-        self.load_state_dict(chkpt['state_dict'])
+        self.load_state_dict(checkpoint['state_dict'])
 
         # Print statistics.
-        logger.info(
-            "Imported Transformer parameters from checkpoint from {} (epoch: {}, loss: {})".format(
-                chkpt['model_timestamp'],
-                chkpt['epoch'],
-                chkpt['loss'],
-                ))
+        if logger is not None:
+            logger.info(
+                "Imported Transformer parameters from checkpoint from {} (epoch: {}, loss: {})".format(
+                    checkpoint['model_timestamp'],
+                    checkpoint['epoch'],
+                    checkpoint['loss'],
+                    ))
+
+    @staticmethod
+    def load_model_from_file(checkpoint_file, logger: Optional[logging.Logger] = None,
+                             params: Optional[dict] = None):
+        """
+        This method is similar to the `load` method, but is static and as such does not need
+        an already instantiated model.
+
+        :param checkpoint_file: The path to a checkpoint file.
+        :param logger: An optional logger to log the values in the checkpoint.
+        :param params: If not None, those are used in place of the params in the checkpoint.
+
+        :return: A Transformer model.
+        :rtype: Transformer
+        """
+        checkpoint = torch.load(checkpoint_file, map_location=lambda storage, loc: storage)
+        if params is None:
+            if not 'params' in checkpoint:
+                raise ValueError("The checkpoint does not contain the model params. "
+                                 "It might have be saved with an older version of the code.\n"
+                                 "Please instantiate a Transformer first and use "
+                                 "the `load` instance method on it instead.")
+            params = checkpoint['params']
+        model = Transformer(params=params)
+        model.load(checkpoint, logger)
+        return model

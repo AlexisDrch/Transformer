@@ -3,3 +3,5 @@ nltk==3.4
 numpy>=1.16<2.0
 torch>=1.0.0<1.1
 tensorboardX>=1.6
+google-cloud-storage
+cloudml-hypertune

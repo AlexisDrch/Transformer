@@ -68,21 +68,19 @@ class ScaledDotProductAttention(nn.Module):
         # get dimension d_k
         d_k = queries.shape[-1]
 
-        # compute Q * K^T
+        # compute Q . K^T
         scores = torch.matmul(queries, keys.transpose(-2, -1)) / np.sqrt(d_k)
-
         if mask is not None:
             # mask out values at indices where mask is 0 by setting them to a large negative value
             # Will be normalized to 0 in the softmax layer afterwards
             scores = scores.masked_fill(mask == 0, -1e9)
 
         # get attn weights
-        attention_weights = self.softmax(scores)
+        self.attention_weights = self.softmax(scores)
 
-        attention_weights = self.dropout(attention_weights)
-
+        self.attention_weights = self.dropout(self.attention_weights)
         # apply the weights on the values
-        return torch.matmul(attention_weights, values)
+        return torch.matmul(self.attention_weights, values)
 
 
 class MultiHeadAttention(nn.Module):

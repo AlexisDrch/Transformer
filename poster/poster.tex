@@ -1,0 +1,231 @@
+\documentclass[paperwidth=30in,paperheight=40in,portrait,fontscale=0.3]{baposter}
+
+% Encoding.
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx} % Required for including images
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+\usepackage[font=small,labelfont=bf,justification=centering]{caption} % Required for specifying captions to tables and figures
+\usepackage{subcaption} % put figures side by side
+\usepackage{lipsum}
+\usepackage{enumerate}
+
+\newcommand{\compresslist}{ % Define a command to reduce spacing within itemize/enumerate environments, this is used right after \begin{itemize} or \begin{enumerate}
+\setlength{\itemsep}{1pt}
+\setlength{\parskip}{0pt}
+\setlength{\parsep}{0pt}
+}
+
+% Defines the colors used for content box headers
+\definecolor{DarkBlue}{cmyk}{1,0.65,0.22,0.80} % Georgia Tech Pantone® Dark Blue
+\definecolor{TechGold}{cmyk}{0.13,0.19,0.62,0.28} % Georgia Tech Pantone® Tech Gold
+\definecolor{ghostwhite}{rgb}{0.97, 0.97, 1.0}
+
+\background{
+  \begin{tikzpicture}[remember picture,overlay]%
+    \fill [fill=bgColorOne] (current page.north west) rectangle(current page.south east);
+    \fill [fill=TechGold] (current page.north west) rectangle(23,25.85);
+    \fill [fill=DarkBlue] (current page.north west) rectangle(23,26);
+  \end{tikzpicture}%
+}
+
+\makeatletter             %Needed to include code in main file
+\renewcommand\@maketitle{%
+\null                 %Sets position marker
+{
+\color{ghostwhite}\sffamily\bfseries\Huge    %Set title font and colour
+\@title \par}%
+\vskip 0.6em%
+{
+\color{white}\sffamily\large        %Set author font and colour
+\lineskip .5em%
+\begin{tabular}[t]{c}%
+\@author
+\end{tabular}
+\par}%
+\vskip 1cm
+\par
+}
+\makeatother
+
+\title{\raggedright Learning about the Attention Mechanism and the Transformer model}
+\author{Baptiste~\textsc{Amato} \and Alexis~\textsc{Durocher}\and Gabriel~\textsc{Hurtado} \newline \and Alexandre~\textsc{Jouandin} \and Vincent~\textsc{Marois}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Begin of Document
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\frenchspacing
+
+\begin{document}
+
+%%
+\begin{poster}%
+  % Poster Options
+  {
+  % Show grid to help with alignment
+  grid=false,
+  % Column spacing
+  colspacing=1em,
+  % Color style
+  bgColorOne=ghostwhite,
+  bgColorTwo=white,
+  borderColor=DarkBlue!80,
+  headerColorOne=DarkBlue,
+  headerColorTwo=DarkBlue,
+  headerFontColor=white,
+  boxColorOne=white,
+  boxColorTwo=DarkBlue!80,
+  % Format of textbox
+  textborder=roundedsmall,
+  % Format of text header
+  eyecatcher=false,
+  headerborder=closed,
+  columns=2,
+  headerheight=3.9cm,
+%  textfont=\sc, An example of changing the text font
+  headershape=smallrounded,
+  headershade=plain,
+  headerfont=\Large\bf, %Sans Serif
+  textfont={\setlength{\parindent}{1.5em}\large},
+  boxshade=plain,
+%  background=shade-tb,
+  background=user,
+  linewidth=0.5pt
+  }
+  { % Left Eye Catcher
+  }
+  {% Title
+    \maketitle
+  }
+  {% Authors
+  }
+  { % Right Eye Catcher - University Logo
+	\includegraphics[width=3.5cm,keepaspectratio]{img/gatech_logo.pdf}
+  }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\headerbox{Motivation}{name=motivations,column=0,row=0}{
+
+	\begin{itemize}
+	  \compresslist
+	  \item Transformer~\cite{vaswani2017attention} model is a SoTA Machine Translation model,
+	  \item No recurrence, only uses the Attention Mechanism~\cite{bahdanau2014neural},
+	  \item[$\Rightarrow$] Can we reproduce the paper's results with our implementation and what can we learn about the model?
+	\end{itemize}
+
+}
+
+\headerbox{The Dataset}{name=dataset, column=0, below=motivations}{
+
+	\begin{itemize}
+	  \compresslist
+	  \item IWSLT 2016 TED talk translation task (French $\rightarrow$ English),
+	  \item 220k train samples, 1025 validation, 1305 test,
+	  \item Avg. sentence length: 20 (train) -- 21 (val) -- 19 (test).
+	\end{itemize}
+
+	\vspace{-20pt}
+	\begin{figure}[H]
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[width=0.9\linewidth]{img/seq_length_distribution.pdf}
+		\caption{Sentence Length Distribution.}
+		\label{fig:seq-length-distrib}
+	\end{subfigure}%
+	\begin{subfigure}{0.5\textwidth}
+		\centering
+		\includegraphics[width=0.9\linewidth]{img/seq_length_distribution_cum.pdf}
+		\caption{Cumulated Distribution.}
+		\label{fig:cum-seq-length-distrib}
+	\end{subfigure}
+	\end{figure}
+
+}
+
+\headerbox{The Transformer Model}{name=model, column=0, below=dataset}{
+  \vspace{-10pt}
+  \begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{img/transformer.png}
+    \caption{The Transformer model Architecture and the Attention Heads.}
+    \label{fig:model}
+  \end{figure}
+  \vspace{-20pt}
+  \begin{itemize}
+    \compresslist
+    \item Encoder-Decoder architecture,
+    \item Less computation-heavy than RNNs for translation,
+    \item Multi-Head Attention: Allows model to jointly attend to information from different
+    representation subspaces.
+  \end{itemize}
+
+}
+
+\headerbox{References}{name=references, column=0, below=model}{
+  \scriptsize
+  \vspace{-8pt}
+  \renewcommand{\refname}{}
+  \bibliographystyle{alpha}
+  \bibliography{references.bib}
+
+}
+
+\headerbox{Experiments}{name=experiments, column=1}{
+	\begin{itemize}
+		\compresslist
+		\item Model converging on the IWSLT dataset,
+    \item Early inference tests not satisfying: Further training \& Beam Search should help.
+	\end{itemize}
+  \vspace{-20pt}
+	\begin{figure}[H]
+		\centering
+		\includegraphics[width=\textwidth]{img/training.png}
+		\caption{Training and Validation loss on 90\% of the IWSLT dataset (15 epochs).}
+		\label{fig:training}
+	\end{figure}
+
+}
+
+\headerbox{Memory Use Analysis}{name=memory-use, column=1, below=experiments}{
+\vspace{-10pt}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\linewidth]{img/precise-memory-use-4-iterations.pdf}
+  \caption{GPU Memory Use over the $1^{st}$ 4 iterations.}
+  \label{fig:mem-use-4-iters}
+\end{figure}
+\vspace{-20pt}
+\begin{itemize}
+  \compresslist
+  \item Initial increase of memory use, particularly when computing loss,
+  \item Stabilization over epoch at $\sim$6 Gb,
+  \item[$\Rightarrow$] \texttt{PyTorch} most likely optimizing in the background.
+\end{itemize}
+
+% \begin{figure}
+%   \centering
+%   \includegraphics[width=\linewidth]{img/memory-use-20-iterations.pdf}
+%   \caption{GPU Memoru use over the $1^{st}$ 20 iterations.}
+%   \label{fig:mem-use-20-iters}
+% \end{figure}
+
+
+}
+
+\headerbox{Challenges}{name=challenges, column=1, below=memory-use}{
+
+\begin{itemize}
+  \compresslist
+  \item Heavy model (65M parameters) \& Aggregation of multiple, fine-tuned specifications $\Rightarrow$ Non-trivial training,
+  \item Non-intuitive training behavior: "No recurrence", but stack of layers and use of subsequent masking on an additional dimension,
+  \item Inference is nonetheless step-by-step,
+  \item Question of reproducibility and transparency remains open.
+\end{itemize}
+}
+
+
+\end{poster}
+
+\end{document}

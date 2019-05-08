@@ -23,10 +23,3 @@ class LanguagePair(IntEnum):
             return ('.fr', '.en')
         else:
             raise ValueError()
-
-    def europarl_path(self):
-        if self == LanguagePair.fr_en:
-            return (
-                "resources/europarl/fr-en/europarl-v7.fr-en.fr.big.txt",
-                "resources/europarl/fr-en/europarl-v7.fr-en.en.big.txt"
-            )

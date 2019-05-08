@@ -23,7 +23,7 @@ class Embeddings(nn.Module):
         """
         super(Embeddings, self).__init__()
         self.embeddings = nn.Embedding(vocab_size, d_model)
-        self.d_model_sqrt = torch.sqrt(tensor([d_model]).type(FloatTensor))
+        self.register_buffer(name='d_model_sqrt', tensor=torch.sqrt(tensor([d_model]).type(FloatTensor)))
 
     def forward(self, x):
         """

@@ -154,4 +154,6 @@ class LabelSmoothingLoss(nn.Module):
         # Finally, go through loss function
         loss = self.criterion(outputs_flat, smoothed_targets)
 
+        del smoothed_targets, targets_flat
+
         return loss

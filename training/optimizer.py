@@ -20,7 +20,7 @@ class NoamOpt(object):
     and decreasing it thereafter proportionally to the inverse square root of the step number.
     """
 
-    def __init__(self, model: torch.nn.Module, model_size=512, lr=0., betas=(0.9, 0.98), eps=1e-9, factor=2, warmup=4000):
+    def __init__(self, model: torch.nn.Module, model_size=512, lr=0., betas=(0.9, 0.98), eps=1e-9, factor=2, warmup=4000, step=0):
         """
         Constructor for the specific Optimizer used for training.
 
@@ -37,11 +37,15 @@ class NoamOpt(object):
         :param factor: Multiplicative factor for the learning rate. Default: 2.
 
         :param warmup: Number of warmup steps. Default: 4000.
+
+        :param step: Initial step index. If starting a new training, then this should be let to the default of 0.
+            If resuming the training of a partially trained model, then this should be equal to the last episode index
+            to ensure the consistency of the learning rate decay with respect to ``warmup``.
         """
 
         self.optimizer = torch.optim.Adam(params=filter(lambda p: p.requires_grad, model.parameters()), lr=lr,
                                           betas=betas, eps=eps)
-        self._step = 0
+        self._step = step
         self.warmup = warmup
         self.factor = factor
         self.model_size = model_size
